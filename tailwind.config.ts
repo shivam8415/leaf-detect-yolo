@@ -13,6 +13,15 @@ export default {
       },
     },
     extend: {
+      backgroundImage: {
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-hero': 'var(--gradient-hero)',
+        'gradient-subtle': 'var(--gradient-subtle)',
+      },
+      boxShadow: {
+        'glow': 'var(--shadow-glow)',
+        'elegant': 'var(--shadow-elegant)',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
