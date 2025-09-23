@@ -24,23 +24,49 @@ const Detection = () => {
 
   const handleAnalyze = useCallback(async () => {
     if (!selectedImage) return;
-    
+
     setIsAnalyzing(true);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    
-    // Mock results
-    setResults({
-      disease: "Tomato Late Blight",
-      confidence: 94.7,
-      severity: "Moderate",
-      treatment: "Apply copper-based fungicide",
-      description: "Late blight is a serious disease affecting tomatoes. Early intervention is crucial."
-    });
-    
-    setIsAnalyzing(false);
+
+    try {
+      const blob = await fetch(selectedImage).then(res => res.blob());
+      const formData = new FormData();
+      formData.append('image', blob, 'uploaded_image.jpg');
+
+      const response = await fetch('http://127.0.0.1:5000/predict', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data && data.predictions && data.predictions.length > 0) {
+        const top = data.predictions[0];
+        setResults({
+          disease: top.class_name,
+          confidence: (top.confidence * 100).toFixed(1),
+          severity: "Moderate",
+          treatment: "Apply standard treatment",
+          description: "This is a real prediction from YOLO model.",
+        });
+      } else {
+        setResults({
+          disease: "Unknown",
+          confidence: 0,
+          severity: "N/A",
+          treatment: "None",
+          description: "No clear disease detected.",
+        });
+      }
+    } catch (error) {
+      console.error('Prediction error:', error);
+      alert("Prediction failed. Make sure backend is running.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   }, [selectedImage]);
+
+
+
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
