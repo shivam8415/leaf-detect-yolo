@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-plant-detection.jpg";
 
 export const Hero = () => {
@@ -28,9 +29,11 @@ export const Hero = () => {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button variant="default" size="lg" className="shadow-elegant">
-                Try Detection Model
-              </Button>
+              <Link to="/detection">
+                <Button variant="default" size="lg" className="shadow-elegant">
+                  Try Detection Model
+                </Button>
+              </Link>
               <Button variant="outline" size="lg">
                 Learn More
               </Button>

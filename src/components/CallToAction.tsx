@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 
 export const CallToAction = () => {
   return (
@@ -16,9 +17,11 @@ export const CallToAction = () => {
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Button variant="secondary" size="lg" className="shadow-elegant">
-                  Access Model Now
-                </Button>
+                <Link to="/detection">
+                  <Button variant="secondary" size="lg" className="shadow-elegant">
+                    Access Model Now
+                  </Button>
+                </Link>
                 <Button variant="outline" size="lg" className="border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10">
                   View Documentation
                 </Button>

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const steps = [
   {
@@ -68,9 +69,11 @@ export const HowItWorks = () => {
         </div>
         
         <div className="text-center">
-          <Button size="lg" className="shadow-elegant">
-            Try Live Demo
-          </Button>
+          <Link to="/detection">
+            <Button size="lg" className="shadow-elegant">
+              Try Live Demo
+            </Button>
+          </Link>
         </div>
       </div>
     </section>
