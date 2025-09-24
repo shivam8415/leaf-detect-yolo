@@ -220,7 +220,43 @@ const Detection = () => {
                         src={selectedImage}
                         alt="Selected plant"
                         className="w-full h-64 object-cover"
+                        id="uploaded-image"
                       />
+                      {results && results.predictions && results.predictions.length > 0 && (
+                        <svg
+                          className="absolute inset-0 w-full h-full pointer-events-none"
+                          viewBox="0 0 100 100"
+                          preserveAspectRatio="none"
+                        >
+                          {results.predictions.map((pred: any, index: number) => (
+                            !pred.class_name.toLowerCase().includes('healthy') && 
+                            !pred.class_name.toLowerCase().includes('background') && (
+                              <g key={index}>
+                                <rect
+                                  x={pred.x1 || pred.bbox?.[0] || 0}
+                                  y={pred.y1 || pred.bbox?.[1] || 0}
+                                  width={(pred.x2 || pred.bbox?.[2] || 0) - (pred.x1 || pred.bbox?.[0] || 0)}
+                                  height={(pred.y2 || pred.bbox?.[3] || 0) - (pred.y1 || pred.bbox?.[1] || 0)}
+                                  fill="none"
+                                  stroke="hsl(var(--destructive))"
+                                  strokeWidth="0.5"
+                                  strokeDasharray="2,2"
+                                  className="animate-pulse"
+                                />
+                                <text
+                                  x={pred.x1 || pred.bbox?.[0] || 0}
+                                  y={(pred.y1 || pred.bbox?.[1] || 0) - 1}
+                                  fill="hsl(var(--destructive))"
+                                  fontSize="2"
+                                  className="font-medium"
+                                >
+                                  {pred.class_name} ({(pred.confidence * 100).toFixed(0)}%)
+                                </text>
+                              </g>
+                            )
+                          ))}
+                        </svg>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <Button
