@@ -1,69 +1,136 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Upload, Camera, CheckCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Upload, Camera, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 
 const Detection = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<any>(null);
+  const [annotatedImage, setAnnotatedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
         setSelectedImage(e.target?.result as string);
         setResults(null);
+        setAnnotatedImage(null);
       };
       reader.readAsDataURL(file);
     }
   }, []);
 
   const handleAnalyze = useCallback(async () => {
-    if (!selectedImage) return;
+    if (!selectedFile) return;
 
     setIsAnalyzing(true);
 
     try {
-      const blob = await fetch(selectedImage).then(res => res.blob());
       const formData = new FormData();
-      formData.append('image', blob, 'uploaded_image.jpg');
+      formData.append('image', selectedFile);
 
       const response = await fetch('http://127.0.0.1:5000/predict', {
         method: 'POST',
         body: formData,
       });
 
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
       const data = await response.json();
 
       if (data && data.predictions && data.predictions.length > 0) {
-        const top = data.predictions[0];
+        const predictions = data.predictions;
+        const diseaseDetected = predictions.some((pred: any) => 
+          !pred.class_name.toLowerCase().includes('healthy') && 
+          !pred.class_name.toLowerCase().includes('background')
+        );
+        
+        const highestConfidence = Math.max(...predictions.map((p: any) => p.confidence));
+        const topPrediction = predictions.find((p: any) => p.confidence === highestConfidence);
+        
         setResults({
-          disease: top.class_name,
-          confidence: (top.confidence * 100).toFixed(1),
-          severity: "Moderate",
-          treatment: "Apply standard treatment",
-          description: "This is a real prediction from YOLO model.",
+          disease: diseaseDetected ? topPrediction.class_name : "Healthy Plant",
+          confidence: (highestConfidence * 100).toFixed(1),
+          severity: diseaseDetected ? getSeverity(highestConfidence) : "None",
+          treatment: diseaseDetected ? getTreatment(topPrediction.class_name) : "No treatment needed",
+          description: diseaseDetected ? 
+            `Detected ${topPrediction.class_name} with ${predictions.length} affected areas found.` : 
+            "Plant appears healthy with no signs of disease.",
+          isHealthy: !diseaseDetected,
+          predictions: predictions
         });
+        
+        if (data.annotated_image) {
+          setAnnotatedImage(data.annotated_image);
+        }
       } else {
         setResults({
-          disease: "Unknown",
+          disease: "Analysis Incomplete",
           confidence: 0,
           severity: "N/A",
-          treatment: "None",
-          description: "No clear disease detected.",
+          treatment: "Retry analysis",
+          description: "Unable to detect clear patterns. Please try with a clearer image.",
+          isHealthy: null,
+          predictions: []
         });
       }
     } catch (error) {
       console.error('Prediction error:', error);
-      alert("Prediction failed. Make sure backend is running.");
+      setResults({
+        disease: "Connection Error",
+        confidence: 0,
+        severity: "N/A", 
+        treatment: "Check connection",
+        description: "Unable to connect to detection service. Please ensure the backend is running.",
+        isHealthy: null,
+        predictions: []
+      });
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedImage]);
+  }, [selectedFile]);
+
+  const getSeverity = (confidence: number) => {
+    if (confidence > 0.8) return "High";
+    if (confidence > 0.6) return "Moderate";
+    return "Low";
+  };
+
+  const getTreatment = (disease: string) => {
+    const treatments: { [key: string]: string } = {
+      'blight': 'Apply copper-based fungicide and improve drainage',
+      'rust': 'Use sulfur-based treatment and increase air circulation',
+      'spot': 'Remove affected leaves and apply organic neem oil',
+      'mildew': 'Increase air flow and apply baking soda solution',
+      'wilt': 'Reduce watering and treat soil with beneficial bacteria'
+    };
+    
+    const diseaseType = Object.keys(treatments).find(key => 
+      disease.toLowerCase().includes(key)
+    );
+    
+    return diseaseType ? treatments[diseaseType] : 'Consult plant pathologist for specific treatment';
+  };
+
+  const handleChangeImage = useCallback(() => {
+    setSelectedImage(null);
+    setSelectedFile(null);
+    setResults(null);
+    setAnnotatedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  }, []);
 
 
 
@@ -76,10 +143,12 @@ const Detection = () => {
     e.preventDefault();
     const files = e.dataTransfer.files;
     if (files[0]) {
+      setSelectedFile(files[0]);
       const reader = new FileReader();
       reader.onload = (event) => {
         setSelectedImage(event.target?.result as string);
         setResults(null);
+        setAnnotatedImage(null);
       };
       reader.readAsDataURL(files[0]);
     }
@@ -136,6 +205,7 @@ const Detection = () => {
                       Supports: JPG, PNG, WEBP
                     </Badge>
                     <input
+                      ref={fileInputRef}
                       id="image-upload"
                       type="file"
                       accept="image/*"
@@ -154,10 +224,11 @@ const Detection = () => {
                     </div>
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => document.getElementById('image-upload')?.click()}
+                        onClick={handleChangeImage}
                         variant="outline"
                         size="sm"
                       >
+                        <RefreshCw className="w-4 h-4 mr-2" />
                         Change Image
                       </Button>
                       <Button
@@ -183,11 +254,15 @@ const Detection = () => {
               </CardContent>
             </Card>
 
-            {/* Results Section */}
+          {/* Results Section */}
             <Card className="shadow-elegant">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-primary" />
+                  {results?.isHealthy ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-orange-500" />
+                  )}
                   Detection Results
                 </CardTitle>
               </CardHeader>
@@ -210,7 +285,7 @@ const Detection = () => {
                         <h3 className="text-lg font-semibold text-foreground">
                           {results.disease}
                         </h3>
-                        <Badge variant={results.confidence > 90 ? "default" : "secondary"}>
+                        <Badge variant={results.isHealthy ? "default" : results.confidence > 70 ? "destructive" : "secondary"}>
                           {results.confidence}% confidence
                         </Badge>
                       </div>
@@ -252,6 +327,47 @@ const Detection = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Infected Areas Visualization */}
+          {annotatedImage && (
+            <Card className="mt-8 shadow-elegant">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-primary" />
+                  Detected Problem Areas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    The highlighted areas show where disease symptoms were detected by the AI model.
+                  </p>
+                  <div className="relative rounded-lg overflow-hidden">
+                    <img
+                      src={annotatedImage}
+                      alt="Annotated plant with detected areas"
+                      className="w-full h-auto"
+                    />
+                  </div>
+                  {results?.predictions && results.predictions.length > 1 && (
+                    <div className="text-sm text-muted-foreground">
+                      <p><strong>Found {results.predictions.length} areas of concern</strong></p>
+                      <ul className="list-disc list-inside mt-2 space-y-1">
+                        {results.predictions.slice(0, 3).map((pred: any, index: number) => (
+                          <li key={index}>
+                            {pred.class_name} - {(pred.confidence * 100).toFixed(1)}% confidence
+                          </li>
+                        ))}
+                        {results.predictions.length > 3 && (
+                          <li>...and {results.predictions.length - 3} more</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Stats Section */}
           <Card className="mt-8 shadow-elegant">
